@@ -11,7 +11,7 @@ For using the code in this repository there is a dependency package needed
 ## Content
 ### Day 1 - Trebuchet ?!
 - ABAP Code
-	- [Source Code](src/ymbh_aoc_2023_day_1.prog-abap)
+	- [Source Code](src/ymbh_aoc_2023_day_1.prog.abap)
 
 
 

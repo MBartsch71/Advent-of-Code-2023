@@ -13,5 +13,11 @@ For using the code in this repository there is a dependency package needed
 - ABAP Code
 	- [Source Code](src/ymbh_aoc_2023_day_1.prog.abap)
 
+### Day 2 - Cube Conundrum
+- ABAP Code
+	- [Source Code](src/ymbh_aoc_2023_day_2.prog.abap)
+
+
+
 
 

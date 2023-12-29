@@ -1,7 +1,5 @@
 REPORT ymbh_aoc_2023_day_3.
 
-
-
 INTERFACE grid_types.
   TYPES: BEGIN OF grid_line,
            row   TYPE i,
@@ -34,12 +32,6 @@ INTERFACE grid_types.
          END OF number_halo_item.
   TYPES number_halo TYPE SORTED TABLE OF number_halo_item WITH UNIQUE KEY primary_key COMPONENTS start_row start_col end_row end_col.
 
-  TYPES: BEGIN OF number_and_symbol,
-           number TYPE string,
-           symbol TYPE string,
-         END OF number_and_symbol.
-  TYPES numbers_and_symbols TYPE STANDARD TABLE OF number_and_symbol WITH EMPTY KEY.
-
   TYPES: BEGIN OF gear_with_number_item,
            gear   TYPE grid_line,
            number TYPE string,
@@ -52,59 +44,28 @@ INTERFACE grid_types.
            power   TYPE i,
          END OF gear_factor.
   TYPES gears_factors TYPE STANDARD TABLE OF gear_factor WITH EMPTY KEY.
+
 ENDINTERFACE.
 
 CLASS aoc_grid DEFINITION FINAL.
 
   PUBLIC SECTION.
-    METHODS build_grid IMPORTING input_grid TYPE stringtab.
+    METHODS investigate IMPORTING input_grid TYPE stringtab.
 
-    METHODS get_grid RETURNING VALUE(result) TYPE grid_types=>input_grid.
-
-    METHODS map_digits.
-
-    METHODS get_digit_map RETURNING VALUE(result) TYPE grid_types=>digit_map.
-
-    METHODS map_numbers.
-
-    METHODS get_number_map RETURNING VALUE(result) TYPE grid_types=>number_map.
-
-    METHODS get_number_halos RETURNING VALUE(result) TYPE grid_types=>number_halo.
-
-    METHODS build_number_halos.
-
-    METHODS get_symbol_map RETURNING VALUE(result) TYPE grid_types=>input_grid.
-
-    METHODS map_symbols.
-
-    METHODS attach_symbols_to_numbers.
-
-    METHODS get_sum_of_attached_values RETURNING VALUE(result) TYPE i.
-
-    METHODS gears_and_numbers.
-
-    METHODS calculare_gears_powers RETURNING VALUE(result) TYPE grid_types=>gears_factors.
-
-    METHODS get_gears_with_numbers RETURNING VALUE(result) TYPE grid_types=>gears_with_numbers.
+    METHODS calc_sum_of_attached_values RETURNING VALUE(result)       TYPE i.
 
     METHODS get_sum_of_gears_powers RETURNING VALUE(result) TYPE i.
 
   PRIVATE SECTION.
     CONSTANTS one_digit_numbers TYPE string VALUE '0123456789'.
     CONSTANTS no_symbol_digits TYPE string VALUE '0123456789.'.
+    CONSTANTS gear_symbol TYPE string VALUE '*'.
 
-    DATA grid TYPE grid_types=>input_grid.
-    DATA digit_map TYPE grid_types=>digit_map.
-    DATA number_map TYPE grid_types=>number_map.
-    DATA number_halos TYPE grid_types=>number_halo.
-    DATA symbol_map TYPE grid_types=>input_grid.
     DATA numbers_and_symbols TYPE grid_types=>number_halo.
-    DATA unattached_numbers TYPE grid_types=>number_halo.
     DATA gears_with_numbers TYPE grid_types=>gears_with_numbers.
-    DATA gears_factors TYPE grid_types=>gears_factors.
 
-    METHODS build_col_tab IMPORTING i_line          TYPE string
-                          RETURNING VALUE(r_result) TYPE stringtab.
+    METHODS build_column_table IMPORTING line          TYPE string
+                               RETURNING VALUE(result) TYPE stringtab.
 
     METHODS is_number_value IMPORTING line          TYPE grid_types=>grid_line
                             RETURNING VALUE(result) TYPE grid_types=>digit_map.
@@ -120,8 +81,6 @@ CLASS aoc_grid DEFINITION FINAL.
                                            current_col   TYPE i
                                  RETURNING VALUE(result) TYPE abap_bool.
 
-    METHODS add_number_line_to_map IMPORTING number_line   TYPE grid_types=>number_map_item.
-
     METHODS initialize_number_map_line RETURNING VALUE(result) TYPE grid_types=>number_map_item.
 
     METHODS update_last_digit_col IMPORTING digit_col     TYPE i
@@ -134,44 +93,84 @@ CLASS aoc_grid DEFINITION FINAL.
                                          max_number    TYPE i
                                RETURNING VALUE(result) TYPE i.
 
+    METHODS line_value_is_a_number IMPORTING line_value    TYPE char1
+                                   RETURNING VALUE(result) TYPE abap_bool.
+    METHODS calculare_gears_powers RETURNING VALUE(result)      TYPE grid_types=>gears_factors.
+
+    METHODS map_digits IMPORTING grid          TYPE grid_types=>input_grid
+                       RETURNING VALUE(result) TYPE grid_types=>digit_map.
+
+    METHODS map_numbers IMPORTING digit_map     TYPE grid_types=>digit_map
+                        RETURNING VALUE(result) TYPE grid_types=>number_map.
+
+    METHODS build_number_halos IMPORTING number_map    TYPE grid_types=>number_map
+                                         grid          TYPE grid_types=>input_grid
+                               RETURNING VALUE(result) TYPE grid_types=>number_halo.
+
+    METHODS map_symbols IMPORTING grid          TYPE grid_types=>input_grid
+                        RETURNING VALUE(result) TYPE grid_types=>input_grid.
+
+    METHODS attach_symbols_to_numbers IMPORTING symbol_map    TYPE grid_types=>input_grid
+                                                number_halos  TYPE grid_types=>number_halo
+                                      RETURNING VALUE(result) TYPE  grid_types=>number_halo.
+
+    METHODS gears_and_numbers IMPORTING symbol_map    TYPE grid_types=>input_grid
+                                        number_halos  TYPE grid_types=>number_halo
+                              RETURNING VALUE(result) TYPE grid_types=>gears_with_numbers.
+
+    METHODS build_grid IMPORTING input_grid    TYPE stringtab
+                       RETURNING VALUE(result) TYPE grid_types=>input_grid.
+
 ENDCLASS.
 
 CLASS aoc_grid IMPLEMENTATION.
 
+  METHOD investigate.
+    DATA(grid) = build_grid( input_grid ).
+    DATA(mapped_digits) = map_digits( grid ).
+    DATA(mapped_numbers) = map_numbers( mapped_digits ).
+    DATA(mapped_symbols) = map_symbols( grid ).
+    DATA(number_halos) = build_number_halos( grid = grid
+                                             number_map = mapped_numbers ).
+    numbers_and_symbols = attach_symbols_to_numbers( symbol_map   = mapped_symbols
+                                                     number_halos = number_halos ).
+    gears_with_numbers = gears_and_numbers( symbol_map = mapped_symbols
+                                            number_halos = number_halos ).
+  ENDMETHOD.
+
   METHOD build_grid.
-    grid = VALUE #( BASE grid FOR line IN input_grid
+    result = VALUE #( BASE result FOR line IN input_grid
                       INDEX INTO line_count
-                      LET col_tab = build_col_tab( line )
+                      LET column_table = build_column_table( line )
                       IN
-                      FOR col IN col_tab
-                      INDEX INTO col_count
-                        ( col = col_count row = line_count value = col ) ).
+                      FOR column IN column_table
+                      INDEX INTO column_count
+                        ( col = column_count
+                          row = line_count
+                          value = column ) ).
   ENDMETHOD.
 
-  METHOD get_grid.
-    result = grid.
-  ENDMETHOD.
-
-  METHOD build_col_tab.
-    DATA(col_iterator) = ycl_mbh_string=>new( i_line )->get_iterator( ).
+  METHOD build_column_table.
+    DATA(col_iterator) = ycl_mbh_string=>new( line )->get_iterator( ).
     WHILE col_iterator->has_next( ).
-      r_result = VALUE #( BASE r_result ( CAST ycl_mbh_string( col_iterator->get_next( ) )->value( ) ) ).
+      result = VALUE #( BASE result
+                            ( CAST ycl_mbh_string( col_iterator->get_next( ) )->value( ) ) ).
     ENDWHILE.
   ENDMETHOD.
 
   METHOD map_digits.
-    digit_map = VALUE #( FOR line IN grid
-                              ( LINES OF is_number_value( line ) ) ).
-  ENDMETHOD.
-
-  METHOD get_digit_map.
-    result = digit_map.
+    result = VALUE #( FOR line IN grid
+                       ( LINES OF is_number_value( line ) ) ).
   ENDMETHOD.
 
   METHOD is_number_value.
-    IF line-value CA one_digit_numbers.
+    IF line_value_is_a_number( line-value ).
       result = VALUE #( ( CORRESPONDING #( line ) ) ).
     ENDIF.
+  ENDMETHOD.
+
+  METHOD line_value_is_a_number.
+    result = xsdbool( line_value CA one_digit_numbers ).
   ENDMETHOD.
 
   METHOD map_numbers.
@@ -181,7 +180,7 @@ CLASS aoc_grid IMPLEMENTATION.
     LOOP AT digit_map REFERENCE INTO DATA(digit).
       IF col_is_not_successor( last_col    = last_col
                                current_col = digit->col ) .
-        add_number_line_to_map( number_map_line ).
+        result = VALUE #( BASE result ( number_map_line ) ).
         number_map_line = initialize_number_map_line( ).
       ENDIF.
 
@@ -189,7 +188,7 @@ CLASS aoc_grid IMPLEMENTATION.
                                                 digit       = digit ).
       last_col = update_last_digit_col( digit->col ).
     ENDLOOP.
-    add_number_line_to_map( number_map_line ).
+    result = VALUE #( BASE result ( number_map_line ) ).
   ENDMETHOD.
 
   METHOD update_number_map_line.
@@ -203,16 +202,8 @@ CLASS aoc_grid IMPLEMENTATION.
                       value     = condense( |{ result-value }{ digit->value }| ) ).
   ENDMETHOD.
 
-  METHOD get_number_map.
-    result = number_map.
-  ENDMETHOD.
-
   METHOD col_is_not_successor.
     result = xsdbool( current_col <> last_col + 1 ).
-  ENDMETHOD.
-
-  METHOD add_number_line_to_map.
-    number_map = VALUE #( BASE number_map ( number_line ) ).
   ENDMETHOD.
 
   METHOD initialize_number_map_line.
@@ -225,7 +216,7 @@ CLASS aoc_grid IMPLEMENTATION.
 
   METHOD build_number_halos.
     DATA(maximum_extend) = grid[ lines( grid ) ].
-    number_halos = VALUE #( BASE number_halos
+    result = VALUE #( BASE result
                             FOR map_item IN number_map
                             ( start_row = get_one_field_less( map_item-row )
                               start_col = get_one_field_less( map_item-start_col )
@@ -234,10 +225,6 @@ CLASS aoc_grid IMPLEMENTATION.
                               end_col   = get_one_field_more( number     = map_item-end_col
                                                               max_number = maximum_extend-col )
                               value     = map_item-value ) ).
-  ENDMETHOD.
-
-  METHOD get_number_halos.
-    result = number_halos.
   ENDMETHOD.
 
   METHOD get_one_field_less.
@@ -251,12 +238,8 @@ CLASS aoc_grid IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD map_symbols.
-    symbol_map = VALUE #( FOR line IN grid
-                              ( LINES OF is_symbol_value( line ) ) ).
-  ENDMETHOD.
-
-  METHOD get_symbol_map.
-    result = symbol_map.
+    result = VALUE #( FOR line IN grid
+                          ( LINES OF is_symbol_value( line ) ) ).
   ENDMETHOD.
 
   METHOD is_symbol_value.
@@ -271,7 +254,7 @@ CLASS aoc_grid IMPLEMENTATION.
         IF symbol->col >= halo->start_col AND symbol->col <= halo->end_col AND
            symbol->row >= halo->start_row AND symbol->row <= halo->end_row.
           TRY.
-              numbers_and_symbols = VALUE #( BASE numbers_and_symbols ( halo->* ) ).
+              result = VALUE #( BASE result ( halo->* ) ).
             CATCH cx_sy_itab_duplicate_key.
               CONTINUE.
           ENDTRY.
@@ -283,7 +266,7 @@ CLASS aoc_grid IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD get_sum_of_attached_values.
+  METHOD calc_sum_of_attached_values.
     result = REDUCE #( INIT sum = 0
                        FOR line IN numbers_and_symbols
                        NEXT sum = sum + line-value ).
@@ -294,17 +277,13 @@ CLASS aoc_grid IMPLEMENTATION.
       LOOP AT number_halos REFERENCE INTO DATA(halo).
         IF symbol->col >= halo->start_col AND symbol->col <= halo->end_col AND
            symbol->row >= halo->start_row AND symbol->row <= halo->end_row AND
-           symbol->value = '*'.
-          gears_with_numbers = VALUE #( BASE gears_with_numbers
+           symbol->value = gear_symbol.
+          result = VALUE #( BASE result
                               ( gear = symbol->*
                                 number = halo->value ) ).
         ENDIF.
       ENDLOOP.
     ENDLOOP.
-  ENDMETHOD.
-
-  METHOD get_gears_with_numbers.
-    result = gears_with_numbers.
   ENDMETHOD.
 
   METHOD calculare_gears_powers.
@@ -318,18 +297,18 @@ CLASS aoc_grid IMPLEMENTATION.
         CLEAR factors.
         CONTINUE.
       ENDIF.
-      gears_factors = VALUE #( BASE gears_factors ( factors = factors
-                                                    power = REDUCE #( INIT power = 1
-                                                                      FOR factor IN factors
-                                                                      NEXT power = power * factor ) ) ).
+      result = VALUE #( BASE result
+                        ( factors = factors
+                          power   = REDUCE #( INIT power = 1
+                                              FOR factor IN factors
+                                              NEXT power = power * factor ) ) ).
       CLEAR factors.
     ENDLOOP.
 
-    result = gears_factors.
   ENDMETHOD.
 
-
   METHOD get_sum_of_gears_powers.
+    DATA(gears_factors) = calculare_gears_powers( ).
     result = REDUCE #( INIT sum = 0
                         FOR line IN gears_factors
                         NEXT sum = sum + line-power ).
@@ -352,24 +331,13 @@ CLASS gear_ratios IMPLEMENTATION.
 
   METHOD process_first_task.
     DATA(grid) = NEW aoc_grid( ).
-    grid->build_grid( input_data ).
-    grid->map_digits( ).
-    grid->map_numbers( ).
-    grid->map_symbols( ).
-    grid->build_number_halos( ).
-    grid->attach_symbols_to_numbers( ).
-    result = grid->get_sum_of_attached_values( ).
+    grid->investigate( input_data ).
+    result = grid->calc_sum_of_attached_values( ).
   ENDMETHOD.
 
   METHOD process_second_task.
     DATA(grid) = NEW aoc_grid( ).
-    grid->build_grid( input_data ).
-    grid->map_digits( ).
-    grid->map_numbers( ).
-    grid->map_symbols( ).
-    grid->build_number_halos( ).
-    grid->gears_and_numbers( ).
-    grid->calculare_gears_powers( ).
+    grid->investigate( input_data ).
     result = grid->get_sum_of_gears_powers( ).
   ENDMETHOD.
 
@@ -397,307 +365,16 @@ CLASS input_builder IMPLEMENTATION.
 
 ENDCLASS.
 
-CLASS expected_result_builder DEFINITION.
-  PUBLIC SECTION.
-    METHODS build RETURNING VALUE(result) TYPE grid_types=>input_grid.
-    METHODS build_digit_map RETURNING VALUE(result) TYPE grid_types=>digit_map.
-    METHODS build_number_map RETURNING VALUE(result) TYPE grid_types=>number_map.
-    METHODS build_numbers_halo RETURNING VALUE(result) TYPE grid_types=>number_halo.
-    METHODS build_symbol_map RETURNING VALUE(result) TYPE grid_types=>input_grid.
-ENDCLASS.
-
-CLASS expected_result_builder IMPLEMENTATION.
-
-  METHOD build.
-    result = VALUE #( ( row = 1 col = 1  value = |4| )
-                      ( row = 1 col = 2  value = |6| )
-                      ( row = 1 col = 3  value = |7| )
-                      ( row = 1 col = 4  value = |.| )
-                      ( row = 1 col = 5  value = |.| )
-                      ( row = 1 col = 6  value = |1| )
-                      ( row = 1 col = 7  value = |1| )
-                      ( row = 1 col = 8  value = |4| )
-                      ( row = 1 col = 9  value = |.| )
-                      ( row = 1 col = 10 value = |.| )
-
-                      ( row = 2 col = 1  value = |.| )
-                      ( row = 2 col = 2  value = |.| )
-                      ( row = 2 col = 3  value = |.| )
-                      ( row = 2 col = 4  value = |*| )
-                      ( row = 2 col = 5  value = |.| )
-                      ( row = 2 col = 6  value = |.| )
-                      ( row = 2 col = 7  value = |.| )
-                      ( row = 2 col = 8  value = |.| )
-                      ( row = 2 col = 9  value = |.| )
-                      ( row = 2 col = 10 value = |.| )
-
-                      ( row = 3 col = 1  value = |.| )
-                      ( row = 3 col = 2  value = |.| )
-                      ( row = 3 col = 3  value = |3| )
-                      ( row = 3 col = 4  value = |5| )
-                      ( row = 3 col = 5  value = |.| )
-                      ( row = 3 col = 6  value = |.| )
-                      ( row = 3 col = 7  value = |6| )
-                      ( row = 3 col = 8  value = |3| )
-                      ( row = 3 col = 9  value = |3| )
-                      ( row = 3 col = 10 value = |.| )
-
-                      ( row = 4 col = 1  value = |.| )
-                      ( row = 4 col = 2  value = |.| )
-                      ( row = 4 col = 3  value = |.| )
-                      ( row = 4 col = 4  value = |.| )
-                      ( row = 4 col = 5  value = |.| )
-                      ( row = 4 col = 6  value = |.| )
-                      ( row = 4 col = 7  value = |#| )
-                      ( row = 4 col = 8  value = |.| )
-                      ( row = 4 col = 9  value = |.| )
-                      ( row = 4 col = 10 value = |.| )
-
-                      ( row = 5 col = 1  value = |6| )
-                      ( row = 5 col = 2  value = |1| )
-                      ( row = 5 col = 3  value = |7| )
-                      ( row = 5 col = 4  value = |*| )
-                      ( row = 5 col = 5  value = |.| )
-                      ( row = 5 col = 6  value = |.| )
-                      ( row = 5 col = 7  value = |.| )
-                      ( row = 5 col = 8  value = |.| )
-                      ( row = 5 col = 9  value = |.| )
-                      ( row = 5 col = 10 value = |.| )
-
-                      ( row = 6 col = 1  value = |.| )
-                      ( row = 6 col = 2  value = |.| )
-                      ( row = 6 col = 3  value = |.| )
-                      ( row = 6 col = 4  value = |.| )
-                      ( row = 6 col = 5  value = |.| )
-                      ( row = 6 col = 6  value = |+| )
-                      ( row = 6 col = 7  value = |.| )
-                      ( row = 6 col = 8  value = |5| )
-                      ( row = 6 col = 9  value = |8| )
-                      ( row = 6 col = 10 value = |.| )
-
-                      ( row = 7 col = 1  value = |.| )
-                      ( row = 7 col = 2  value = |.| )
-                      ( row = 7 col = 3  value = |5| )
-                      ( row = 7 col = 4  value = |9| )
-                      ( row = 7 col = 5  value = |2| )
-                      ( row = 7 col = 6  value = |.| )
-                      ( row = 7 col = 7  value = |.| )
-                      ( row = 7 col = 8  value = |.| )
-                      ( row = 7 col = 9  value = |.| )
-                      ( row = 7 col = 10 value = |.| )
-
-                      ( row = 8 col = 1  value = |.| )
-                      ( row = 8 col = 2  value = |.| )
-                      ( row = 8 col = 3  value = |.| )
-                      ( row = 8 col = 4  value = |.| )
-                      ( row = 8 col = 5  value = |.| )
-                      ( row = 8 col = 6  value = |.| )
-                      ( row = 8 col = 7  value = |7| )
-                      ( row = 8 col = 8  value = |5| )
-                      ( row = 8 col = 9  value = |5| )
-                      ( row = 8 col = 10 value = |.| )
-
-                      ( row = 9 col = 1  value = |.| )
-                      ( row = 9 col = 2  value = |.| )
-                      ( row = 9 col = 3  value = |.| )
-                      ( row = 9 col = 4  value = |$| )
-                      ( row = 9 col = 5  value = |.| )
-                      ( row = 9 col = 6  value = |*| )
-                      ( row = 9 col = 7  value = |.| )
-                      ( row = 9 col = 8  value = |.| )
-                      ( row = 9 col = 9  value = |.| )
-                      ( row = 9 col = 10 value = |.| )
-
-                      ( row = 10 col = 1  value = |.| )
-                      ( row = 10 col = 2  value = |6| )
-                      ( row = 10 col = 3  value = |6| )
-                      ( row = 10 col = 4  value = |4| )
-                      ( row = 10 col = 5  value = |.| )
-                      ( row = 10 col = 6  value = |5| )
-                      ( row = 10 col = 7  value = |9| )
-                      ( row = 10 col = 8  value = |8| )
-                      ( row = 10 col = 9  value = |.| )
-                      ( row = 10 col = 10 value = |.| ) ).
-  ENDMETHOD.
-
-  METHOD build_digit_map.
-    result = VALUE #( ( row = 1 col = 1 value = 4 )
-                      ( row = 1 col = 2 value = 6 )
-                      ( row = 1 col = 3 value = 7 )
-                      ( row = 1 col = 6 value = 1 )
-                      ( row = 1 col = 7 value = 1 )
-                      ( row = 1 col = 8 value = 4 )
-                      ( row = 3 col = 3 value = 3 )
-                      ( row = 3 col = 4 value = 5 )
-                      ( row = 3 col = 7 value = 6 )
-                      ( row = 3 col = 8 value = 3 )
-                      ( row = 3 col = 9 value = 3 )
-                      ( row = 5 col = 1 value = 6 )
-                      ( row = 5 col = 2 value = 1 )
-                      ( row = 5 col = 3 value = 7 )
-                      ( row = 6 col = 8 value = 5 )
-                      ( row = 6 col = 9 value = 8 )
-                      ( row = 7 col = 3 value = 5 )
-                      ( row = 7 col = 4 value = 9 )
-                      ( row = 7 col = 5 value = 2 )
-                      ( row = 8 col = 7 value = 7 )
-                      ( row = 8 col = 8 value = 5 )
-                      ( row = 8 col = 9 value = 5 )
-                      ( row = 10 col = 2 value = 6 )
-                      ( row = 10 col = 3 value = 6 )
-                      ( row = 10 col = 4 value = 4 )
-                      ( row = 10 col = 6 value = 5 )
-                      ( row = 10 col = 7 value = 9 )
-                      ( row = 10 col = 8 value = 8 ) ).
-  ENDMETHOD.
-
-  METHOD build_number_map.
-    result = VALUE #( ( row = 1 start_col = 1 end_col = 3 value = |467| )
-                      ( row = 1 start_col = 6 end_col = 8 value = |114| )
-                      ( row = 3 start_col = 3 end_col = 4 value = |35| )
-                      ( row = 3 start_col = 7 end_col = 9 value = |633| )
-                      ( row = 5 start_col = 1 end_col = 3 value = |617| )
-                      ( row = 6 start_col = 8 end_col = 9 value = |58| )
-                      ( row = 7 start_col = 3 end_col = 5 value = |592| )
-                      ( row = 8 start_col = 7 end_col = 9 value = |755| )
-                      ( row = 10 start_col = 2 end_col = 4 value = |664| )
-                      ( row = 10 start_col = 6 end_col = 8 value = |598| ) ).
-  ENDMETHOD.
-
-  METHOD build_numbers_halo.
-    result = VALUE #( ( start_row = 1 start_col = 1 end_row = 2  end_col = 4  value = |467| )
-                      ( start_row = 1 start_col = 5 end_row = 2  end_col = 9  value = |114| )
-                      ( start_row = 2 start_col = 2 end_row = 4  end_col = 5  value = |35| )
-                      ( start_row = 2 start_col = 6 end_row = 4  end_col = 10 value = |633| )
-                      ( start_row = 4 start_col = 1 end_row = 6  end_col = 4  value = |617| )
-                      ( start_row = 5 start_col = 7 end_row = 7  end_col = 10 value = |58| )
-                      ( start_row = 6 start_col = 2 end_row = 8  end_col = 6  value = |592| )
-                      ( start_row = 7 start_col = 6 end_row = 9  end_col = 10 value = |755| )
-                      ( start_row = 9 start_col = 1 end_row = 10 end_col = 5  value = |664| )
-                      ( start_row = 9 start_col = 5 end_row = 10 end_col = 9  value = |598| ) ).
-  ENDMETHOD.
-
-  METHOD build_symbol_map.
-    result = VALUE #( ( row = 2 col = 4 value = |*| )
-                      ( row = 4 col = 7 value = |#| )
-                      ( row = 5 col = 4 value = |*| )
-                      ( row = 6 col = 6 value = |+| )
-                      ( row = 9 col = 4 value = |$| )
-                      ( row = 9 col = 6 value = |*| ) ).
-  ENDMETHOD.
-
-ENDCLASS.
-
-CLASS test_grid DEFINITION FINAL FOR TESTING
-  DURATION SHORT
-  RISK LEVEL HARMLESS.
-
-  PRIVATE SECTION.
-    DATA cut TYPE REF TO aoc_grid.
-
-    METHODS setup.
-
-    METHODS can_create_object FOR TESTING.
-    METHODS get_test_grid FOR TESTING.
-    METHODS get_map_with_digits FOR TESTING.
-    METHODS get_map_with_numbers FOR TESTING.
-    METHODS get_numbers_halo FOR TESTING.
-    METHODS get_symbol_map FOR TESTING.
-    METHODS get_gears_with_numbers FOR TESTING.
-    METHODS get_gear_doubles_as_factors FOR TESTING.
-
-ENDCLASS.
-
-CLASS test_grid IMPLEMENTATION.
-
-  METHOD setup.
-    cut = NEW #( ).
-    cut->build_grid( NEW input_builder( )->build( ) ).
-  ENDMETHOD.
-
-  METHOD can_create_object.
-    cl_abap_unit_assert=>assert_bound( act = cut msg = |The object should be bound!| ).
-  ENDMETHOD.
-
-  METHOD get_test_grid.
-    DATA(expected_grid) = NEW expected_result_builder( )->build( ).
-    cl_abap_unit_assert=>assert_equals( exp = expected_grid act = cut->get_grid( )  ).
-  ENDMETHOD.
-
-  METHOD get_map_with_digits.
-    cut->map_digits( ).
-    DATA(expected_values) = NEW expected_result_builder( )->build_digit_map( ).
-
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->get_digit_map( ) ).
-  ENDMETHOD.
-
-  METHOD get_map_with_numbers.
-    DATA(expected_values) = NEW expected_result_builder( )->build_number_map( ).
-    cut->map_digits( ).
-    cut->map_numbers( ).
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->get_number_map( ) ).
-  ENDMETHOD.
-
-  METHOD get_numbers_halo.
-    DATA(expected_values) = NEW expected_result_builder( )->build_numbers_halo( ).
-    cut->map_digits( ).
-    cut->map_numbers( ).
-    cut->build_number_halos( ).
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->get_number_halos( ) ).
-  ENDMETHOD.
-
-  METHOD get_symbol_map.
-    DATA(expected_values) = NEW expected_result_builder( )->build_symbol_map( ).
-    cut->map_symbols( ).
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->get_symbol_map( )  ).
-  ENDMETHOD.
-
-  METHOD get_gears_with_numbers.
-    cut->map_digits( ).
-    cut->map_numbers( ).
-    cut->map_symbols( ).
-    cut->build_number_halos( ).
-    cut->gears_and_numbers( ).
-    DATA(expected_values) = VALUE grid_types=>gears_with_numbers( ( gear = VALUE #( row = 2 col = 4 value = |*| )
-                                                                    number = |467| )
-                                                                  ( gear = VALUE #( row = 2 col = 4 value = |*| )
-                                                                    number = |35| )
-                                                                  ( gear = VALUE #( row = 5 col = 4 value = |*|  )
-                                                                    number = |617| )
-                                                                  ( gear = VALUE #( row = 9 col = 6 value = |*| )
-                                                                    number = |755| )
-                                                                  ( gear = VALUE #( row = 9 col = 6 value = |*| )
-                                                                    number = |598| ) ).
-
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->get_gears_with_numbers( ) ).
-  ENDMETHOD.
-
-  METHOD get_gear_doubles_as_factors.
-    cut->map_digits( ).
-    cut->map_numbers( ).
-    cut->map_symbols( ).
-    cut->build_number_halos( ).
-    cut->gears_and_numbers( ).
-    DATA(expected_values) = VALUE grid_types=>gears_factors( ( factors = VALUE #( ( 35 )
-                                                                                  ( 467 ) )
-                                                               power = 16345 )
-
-                                                             ( factors = VALUE #( ( 598 )
-                                                                                  ( 755 ) )
-                                                               power = 451490 ) ).
-    cl_abap_unit_assert=>assert_equals( exp = expected_values act = cut->calculare_gears_powers( ) ).
-  ENDMETHOD.
-
-ENDCLASS.
-
 CLASS test_application DEFINITION FINAL FOR TESTING
   DURATION SHORT
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
     DATA cut TYPE REF TO gear_ratios.
+    DATA input_data TYPE stringtab.
 
     METHODS setup.
+
     METHODS can_create_object FOR TESTING.
     METHODS solve_first_part_of_task FOR TESTING.
     METHODS solve_second_part_of_task FOR TESTING.
@@ -707,6 +384,7 @@ CLASS test_application IMPLEMENTATION.
 
   METHOD setup.
     cut = NEW #( ).
+    input_data = NEW input_builder( )->build( ).
   ENDMETHOD.
 
   METHOD can_create_object.
@@ -714,12 +392,10 @@ CLASS test_application IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD solve_first_part_of_task.
-    DATA(input_data) = NEW input_builder( )->build( ).
     cl_abap_unit_assert=>assert_equals( exp = 4361 act = cut->process_first_task( input_data ) ).
   ENDMETHOD.
 
   METHOD solve_second_part_of_task.
-    DATA(input_data) = NEW input_builder( )->build( ).
     cl_abap_unit_assert=>assert_equals( exp = 467835 act = cut->process_second_task( input_data ) ).
   ENDMETHOD.
 
